@@ -1,0 +1,8 @@
+versao-antiga/
+*.JPG
+*.jpg
+*.jpeg
+*.png
+.claude/
+.playwright-mcp/
+node_modules/

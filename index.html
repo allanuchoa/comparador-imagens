@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comparador de Imagens - Allan Workbench</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="display: none;">
+
+<main class="wrap">
+  <header class="top">
+    <div>
+      <h1>Comparador de Imagens</h1>
+      <p class="lead">Compare fotos do mesmo lugar em momentos diferentes: o painel alinha as imagens e mostra o que mudou. Nada sai do seu computador.</p>
+    </div>
+    <div class="bar">
+      <label class="btn btn-primary">Adicionar imagens<input type="file" id="file" accept="image/*" multiple hidden></label>
+      <button class="btn btn-secondary" id="demo" type="button">Carregar exemplo</button>
+    </div>
+  </header>
+
+  <label id="empty" class="drop" for="file" tabindex="0">
+    <strong>Arraste duas ou mais imagens aqui, cole com Ctrl+V ou clique para escolher</strong>
+    <span>A primeira imagem é a referência; as outras são alinhadas a ela automaticamente. Até 12 imagens.</span>
+  </label>
+
+  <div id="work" hidden>
+    <div id="modes" class="modes" role="group" aria-label="Modo de comparação">
+      <button type="button" data-mode="split" title="Tecla 1">Cortina<kbd>1</kbd></button>
+      <button type="button" data-mode="fade" title="Tecla 2">Transparência<kbd>2</kbd></button>
+      <button type="button" data-mode="flicker" title="Tecla 3">Piscar<kbd>3</kbd></button>
+      <button type="button" data-mode="lens" title="Tecla 4">Lupa<kbd>4</kbd></button>
+      <button type="button" data-mode="side" title="Tecla 5">Lado a lado<kbd>5</kbd></button>
+      <button type="button" data-mode="slices" title="Tecla 6">Fatias<kbd>6</kbd></button>
+      <button type="button" data-mode="diff" title="Tecla 7">Diferença<kbd>7</kbd></button>
+      <button type="button" data-mode="veg" title="Tecla 8">Vegetação<kbd>8</kbd></button>
+    </div>
+
+    <div class="cols">
+      <div id="stage-wrap" class="stage-wrap">
+        <div id="stage" class="stage" tabindex="0" role="application" aria-label="Área de comparação. Arraste para mover, role para aproximar.">
+          <canvas id="cv"></canvas>
+        </div>
+        <div class="status">
+          <span id="st-zoom"></span>
+          <span id="st-pos"></span>
+          <span class="tip"><kbd>Espaço</kbd> segure para inverter A e B</span>
+          <span id="st-msg" class="grow" role="status"></span>
+          <button class="btn btn-secondary" id="fit" type="button" title="Tecla 0">Ajustar à tela</button>
+          <button class="btn btn-secondary" id="real" type="button">Tamanho real</button>
+          <button class="btn btn-secondary" id="full" type="button" title="Tecla F">Tela cheia</button>
+        </div>
+      </div>
+
+      <aside class="side">
+        <section class="panel">
+          <h2>Imagens</h2>
+          <div id="list" class="list"></div>
+          <div class="bar">
+            <button class="btn btn-secondary" id="swap" type="button" title="Tecla S">Trocar A e B</button>
+            <button class="btn btn-secondary" id="clear" type="button">Remover todas</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 id="mode-title"></h2>
+          <p id="mode-hint" class="hint"></p>
+          <label data-for="split slices">Ângulo do corte <output></output><input type="range" data-o="angle" min="0" max="175" step="5"></label>
+          <label data-for="fade">Opacidade de B <output></output><input type="range" data-o="opacity" min="0" max="100" step="1"></label>
+          <label data-for="flicker">Trocas por segundo <output></output><input type="range" data-o="speed" min="0.5" max="8" step="0.5"></label>
+          <label data-for="lens">Tamanho da lupa <output></output><input type="range" data-o="lens" min="60" max="500" step="10"></label>
+          <label data-for="slices">Número de fatias <output></output><input type="range" data-o="slices" min="2" max="40" step="1"></label>
+          <label data-for="diff">Limiar de mudança <output></output><input type="range" data-o="thr" min="5" max="120" step="1"></label>
+          <label data-for="diff">Realce <output></output><input type="range" data-o="gain" min="1" max="8" step="0.5"></label>
+          <label data-for="veg">Sensibilidade ao verde <output></output><input type="range" data-o="vthr" min="0.02" max="0.3" step="0.01"></label>
+          <div data-for="split fade" class="bar">
+            <button class="btn btn-secondary" id="anim" type="button">Animar</button>
+          </div>
+          <div id="stats" class="stats"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Alinhamento de B</h2>
+          <div class="bar">
+            <button class="btn btn-secondary" id="align" type="button" title="Tecla A">Alinhar sozinho</button>
+            <button class="btn btn-secondary" id="move" type="button" aria-pressed="false">Mover com o mouse</button>
+            <button class="btn btn-secondary" id="zero" type="button">Zerar</button>
+          </div>
+          <div class="nudge" role="group" aria-label="Ajuste fino do alinhamento">
+            <button type="button" data-n="dx,-1" aria-label="Deslocar B para a esquerda">←</button>
+            <button type="button" data-n="dx,1" aria-label="Deslocar B para a direita">→</button>
+            <button type="button" data-n="dy,-1" aria-label="Deslocar B para cima">↑</button>
+            <button type="button" data-n="dy,1" aria-label="Deslocar B para baixo">↓</button>
+            <button type="button" data-n="scale,-1" aria-label="Diminuir B">−</button>
+            <button type="button" data-n="scale,1" aria-label="Aumentar B">+</button>
+            <button type="button" data-n="rot,-1" aria-label="Girar B para a esquerda">↺</button>
+            <button type="button" data-n="rot,1" aria-label="Girar B para a direita">↻</button>
+          </div>
+          <p id="al-read" class="hint"></p>
+        </section>
+
+        <section class="panel">
+          <h2>Exibição e exportação</h2>
+          <label class="chk"><input type="checkbox" data-o="labels"> Legendas na imagem</label>
+          <label class="chk"><input type="checkbox" data-o="grid"> Grade de terços</label>
+          <label class="chk"><input type="checkbox" data-o="match"> Igualar o brilho de B ao de A</label>
+          <div class="bar">
+            <button class="btn btn-primary" id="png" type="button">Baixar PNG da vista</button>
+            <button class="btn btn-secondary" id="pair" type="button">PNG lado a lado</button>
+            <button class="btn btn-secondary" id="rec" type="button">Gravar vídeo</button>
+          </div>
+        </section>
+
+        <details class="panel">
+          <summary>Atalhos</summary>
+          <dl class="keys">
+            <dt>1 a 8</dt><dd>troca o modo</dd>
+            <dt>Espaço (segurar)</dt><dd>inverte A e B para conferir</dd>
+            <dt>Roda do mouse</dt><dd>aproxima no ponto do cursor</dd>
+            <dt>Arrastar</dt><dd>move a vista; na cortina, pegue a linha</dd>
+            <dt>Alt + arrastar</dt><dd>move a imagem B</dd>
+            <dt>Shift + setas</dt><dd>desloca B um passo</dd>
+            <dt>← →</dt><dd>move a cortina</dd>
+            <dt>+ − 0</dt><dd>aproxima, afasta, ajusta à tela</dd>
+            <dt>A S F G L</dt><dd>alinhar, trocar, tela cheia, grade, legendas</dd>
+          </dl>
+        </details>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+<script>
+  (function () {
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]dev\b/.test(location.search)) { document.body.style.display = ''; return; }
+    const s = document.createElement('script');
+    s.src = `${CONFIG.PORTAL_URL}assets/js/workbench-bridge.js`;
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+</script>
+</body>
+</html>
